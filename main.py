@@ -308,9 +308,8 @@ def main():
     print("2 - Descriptografar texto_cifrado.txt")
     print("3 - Calcular Média do Indice de Coincidencia")
     print("4 - Estimar tamanho da chave")
-    print("5 - Analisar deslocamento de um subtexto")
-    print("6 - Quebrar Vigenere automaticamente")
-    print("7 - Sair")
+    print("5 - Quebrar Vigenere automaticamente")
+    print("6 - Sair")
 
     opcao = input("Opcao: ").strip()
     if opcao == "1":
@@ -335,18 +334,18 @@ def main():
             print(erro)
     elif opcao == "5":
         try:
-            mostrar_analise_deslocamento()
-        except ValueError as erro:
-            print(erro)
-    elif opcao == "6":
-        try:
             mostrar_quebra_automatica()
         except ValueError as erro:
             print(erro)
-    elif opcao == "7":
+    elif opcao == "6":
         print("Encerrado.")
     else:
         print("Opcao invalida.")
+    # elif opcao == "5":
+    #     try:
+    #         mostrar_analise_deslocamento()
+    #     except ValueError as erro:
+    #         print(erro)
 
 
 if __name__ == "__main__":
