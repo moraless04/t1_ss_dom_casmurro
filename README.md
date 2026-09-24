@@ -65,6 +65,8 @@ Fonte: [Tabelas de frequências na língua portuguesa — Rogério Reis](https:/
 
 O ataque automático é estatístico: textos curtos, distribuição incomum de letras ou estimativa incorreta do tamanho da chave podem levar a uma chave incorreta. O programa mostra os principais tamanhos candidatos para facilitar a análise.
 
+O ataque testa tamanhos de chave de 1 a 10, conforme o enunciado. Na opção de criptografia, o programa aceita chaves de no máximo 10 letras e exige pelo menos 20 letras por posição da chave. Assim, ele impede uma chave longa demais para o texto escolhido, pois ela impediria a recuperação estatística durante a criptoanálise.
+
 ## Observação acadêmica
 
 Este projeto implementa uma cifra clássica para fins didáticos. Não deve ser utilizado como substituto de algoritmos criptográficos modernos.

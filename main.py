@@ -9,6 +9,8 @@ ARQUIVO_ORIGINAL = PASTA_PROJETO / "texto_original.txt"
 ARQUIVO_CIFRADO = PASTA_PROJETO / "texto_cifrado.txt"
 ARQUIVO_DECIFRADO = PASTA_PROJETO / "texto_decifrado.txt"
 ALFABETO = "abcdefghijklmnopqrstuvwxyz"
+MAX_TAMANHO_CHAVE = 10
+MINIMO_LETRAS_POR_SUBTEXTO = 20
 
 # Percentuais aproximados de letras em português, publicados a partir do
 # corpus jornalístico CTEMPúblico (mais de 180 milhões de palavras):
@@ -85,7 +87,7 @@ def dividir_subtextos(texto, tamanho_chave):
     return [texto[posicao::tamanho_chave] for posicao in range(tamanho_chave)]
 
 
-def estimar_tamanho_chave(texto, max_tamanho=10):
+def estimar_tamanho_chave(texto, max_tamanho=MAX_TAMANHO_CHAVE):
     """Calcula o IC medio dos subtextos para cada tamanho candidato."""
     texto = higienizar(texto)
     if len(texto) < 2:
@@ -165,10 +167,19 @@ def descobrir_chave(texto_cifrado, tamanho_chave):
     return "".join(letras_chave)
 
 
-def quebrar_vigenere(texto_cifrado, max_tamanho=10):
+def quebrar_vigenere(texto_cifrado, max_tamanho=MAX_TAMANHO_CHAVE):
     """Estima o tamanho e a chave, depois descriptografa o texto."""
     indices_medios = estimar_tamanho_chave(texto_cifrado, max_tamanho)
     tamanho_chave = max(indices_medios, key=indices_medios.get)
+    quantidade_letras = len(higienizar(texto_cifrado))
+    letras_por_subtexto = quantidade_letras / tamanho_chave
+    if letras_por_subtexto < MINIMO_LETRAS_POR_SUBTEXTO:
+        raise ValueError(
+            "O tamanho estimado deixa poucos dados para a analise de frequencia: "
+            f"{letras_por_subtexto:.1f} letras por subtexto. Use um texto maior "
+            f"ou uma chave menor; o recomendado e ao menos "
+            f"{MINIMO_LETRAS_POR_SUBTEXTO} letras por subtexto."
+        )
     chave_estimada = descobrir_chave(texto_cifrado, tamanho_chave)
     texto_decifrado = transformar_vigenere(
         texto_cifrado,
@@ -178,12 +189,31 @@ def quebrar_vigenere(texto_cifrado, max_tamanho=10):
     return tamanho_chave, chave_estimada, texto_decifrado, indices_medios
 
 
+def validar_chave_para_criptoanalise(texto, chave):
+    """Garante amostras suficientes para o ataque por frequencia."""
+    texto_higienizado = higienizar(texto)
+    chave_higienizada = higienizar(chave)
+    tamanho_maximo_pelo_texto = len(texto_higienizado) // MINIMO_LETRAS_POR_SUBTEXTO
+    tamanho_maximo = min(MAX_TAMANHO_CHAVE, tamanho_maximo_pelo_texto)
+
+    if len(chave_higienizada) > tamanho_maximo:
+        raise ValueError(
+            "A chave tem "
+            f"{len(chave_higienizada)} letras, mas este texto permite no maximo "
+            f"{tamanho_maximo} para a criptoanalise por frequencia. O programa "
+            f"testa chaves de ate {MAX_TAMANHO_CHAVE} letras. "
+            f"Use uma chave menor ou um texto com pelo menos "
+            f"{len(chave_higienizada) * MINIMO_LETRAS_POR_SUBTEXTO} letras higienizadas."
+        )
+
+
 def ler_arquivo(caminho):
     return caminho.read_text(encoding="utf-8")
 
 
 def criptografar_arquivo(chave):
     texto_original = ler_arquivo(ARQUIVO_ORIGINAL)
+    validar_chave_para_criptoanalise(texto_original, chave)
     texto_cifrado = transformar_vigenere(texto_original, chave)
     ARQUIVO_CIFRADO.write_text(texto_cifrado, encoding="utf-8")
     print(f"Texto cifrado salvo em: {ARQUIVO_CIFRADO.name}")
@@ -199,12 +229,19 @@ def descriptografar_arquivo(chave):
 def mostrar_ic_arquivo():
     texto_cifrado = ler_arquivo(ARQUIVO_CIFRADO)
     indice = calcular_ic(texto_cifrado)
-    print(f"Indice de Coincidencia do texto cifrado: {indice:.6f}")
-
-
-def mostrar_estimativa_tamanho_chave():
-    texto_cifrado = ler_arquivo(ARQUIVO_CIFRADO)
     indices_medios = estimar_tamanho_chave(texto_cifrado)
+    media_de_todos_ics = sum(indices_medios.values()) / len(indices_medios)
+
+    print(f"Indice de Coincidencia do texto cifrado: {indice:.6f}")
+    print(
+        "Media dos ICs medios para os tamanhos de chave de 1 a "
+        f"{MAX_TAMANHO_CHAVE}: {media_de_todos_ics:.6f}"
+    )
+
+
+def mostrar_estimativa_tamanho_chave(max_tamanho=MAX_TAMANHO_CHAVE):
+    texto_cifrado = ler_arquivo(ARQUIVO_CIFRADO)
+    indices_medios = estimar_tamanho_chave(texto_cifrado, max_tamanho)
     tamanho_mais_provavel = max(indices_medios, key=indices_medios.get)
     melhores_candidatos = sorted(
         indices_medios.items(),
@@ -236,9 +273,12 @@ def mostrar_analise_deslocamento():
     print(f"Distancia em relacao ao portugues: {distancia:.6f} (menor e melhor)")
 
 
-def mostrar_quebra_automatica():
+def mostrar_quebra_automatica(max_tamanho=MAX_TAMANHO_CHAVE):
     texto_cifrado = ler_arquivo(ARQUIVO_CIFRADO)
-    tamanho, chave, texto_decifrado, indices_medios = quebrar_vigenere(texto_cifrado)
+    tamanho, chave, texto_decifrado, indices_medios = quebrar_vigenere(
+        texto_cifrado,
+        max_tamanho,
+    )
 
     print("Tamanho da chave | IC medio dos subtextos")
     for tamanho_teste, indice in indices_medios.items():
@@ -266,7 +306,7 @@ def main():
     print("=== SEGURANCA DE SISTEMAS: VIGENERE ===")
     print("1 - Criptografar texto_original.txt")
     print("2 - Descriptografar texto_cifrado.txt")
-    print("3 - Calcular Indice de Coincidencia")
+    print("3 - Calcular Média do Indice de Coincidencia")
     print("4 - Estimar tamanho da chave")
     print("5 - Analisar deslocamento de um subtexto")
     print("6 - Quebrar Vigenere automaticamente")
@@ -274,9 +314,15 @@ def main():
 
     opcao = input("Opcao: ").strip()
     if opcao == "1":
-        criptografar_arquivo(input("Chave: "))
+        try:
+            criptografar_arquivo(input("Chave: "))
+        except ValueError as erro:
+            print(erro)
     elif opcao == "2":
-        descriptografar_arquivo(input("Chave: "))
+        try:
+            descriptografar_arquivo(input("Chave: "))
+        except ValueError as erro:
+            print(erro)
     elif opcao == "3":
         try:
             mostrar_ic_arquivo()
